@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project 2604262100</title>
+    <style>
+        body {
+            background-color: #000000;
+            color: #ffffff;
+        }
+        textarea {
+            width: 100%;
+            height: 300px;
+            background-color: #000000;
+            color: #ffffff;
+            font-size: 16px;
+        }
+        .info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <textarea id="darkTextArea" placeholder="Connecting..." disabled></textarea>
+        <div class="info" id="status">Connecting to Firebase...</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+
+	const apiKey = prompt("Enter1:");
+	const messagingSenderId = prompt("Enter Messaging Sender ID:");
+	const appIdSuffix = prompt("Enter App ID suffix:");
+//ini0	
+	function ask({ message, pattern, label }) {
+	    while (true) {
+	        const v = prompt(message);
+	        if (v && pattern.test(v)) return v;
+	        alert(`Invalid ${label}`);
+	    }
+	}
+	
+	const fields = {
+	    apiKey: {
+	        message: "API Key (39 chars, a-z, A-Z, 0-9, -, _):",
+	        pattern: /^[a-zA-Z0-9-_]{39}$/
+	    },
+	    name: {
+	        message: "Name (6 chars, alphanumeric):",
+	        pattern: /^[a-zA-Z0-9]{6}$/
+	    },
+	    messagingSenderId: {
+	        message: "Messaging Sender ID (12 numbers):",
+	        pattern: /^\d{12}$/
+	    },
+	    appIdSuffix: {
+	        message: "App ID suffix (22 chars, alphanumeric):",
+	        pattern: /^[a-zA-Z0-9]{22}$/
+	    }
+	};
+	
+	const data = {};
+	for (const key in fields) {
+	    data[key] = ask({ ...fields[key], label: key });
+	}
+	
+	const firebaseConfig = {
+	    apiKey: data.apiKey,
+	    authDomain: `${data.name}.firebaseapp.com`,
+	    databaseURL: `https://${data.name}-default-rtdb.firebaseio.com`,
+	    projectId: data.name,
+	    storageBucket: `${data.name}.firebasestorage.app`,
+	    messagingSenderId: data.messagingSenderId,
+	    appId: `1:${data.messagingSenderId}:web:${data.appIdSuffix}`
+	};
+
+
+
+
+
+//end0
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const docRef = ref(db, 'document'); // FIX 1: Renamed to docRef, points to /document
+
+        const textArea = document.getElementById('darkTextArea');
+        const statusDisplay = document.getElementById('status');
+        
+        // FIX 2: Removed the immediate set() call. It was wrong.
+
+        // Load text from Firebase in real-time
+        onValue(docRef, (snapshot) => {
+            const data = snapshot.val() || {}; // FIX 3: data is an object
+            const serverText = data.text || ""; // FIX 4: get .text from object
+            
+            if (document.activeElement !== textArea) {
+                const cursorPos = textArea.selectionStart;
+                textArea.value = serverText;
+                textArea.selectionEnd = cursorPos;
+            }
+            updateStatus(serverText);
+            textArea.disabled = false;
+            textArea.placeholder = "abcd...";
+        });
+
+        // Save to Firebase when user types
+        let saveTimeout;
+        textArea.addEventListener('input', () => {
+            const text = textArea.value;
+            updateStatus(text);
+            
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                // FIX 5: Write object with BOTH fields to match your rules
+                set(docRef, {
+                    text: text,
+                    lastWrite: Date.now()
+                }).catch(err => {
+                    console.error("Write failed:", err);
+                    statusDisplay.textContent = "Save failed - wait 10s or check rules";
+                });
+            }, 500); // Increased to 500ms
+        });
+
+        function updateStatus(text) {
+            const lineCount = text.split('\n').length;
+            const charCount = text.length;
+            statusDisplay.textContent = `Lines: ${lineCount} | Characters: ${charCount}`;
+        }
+    </script>
+
+</body>
+</html>
