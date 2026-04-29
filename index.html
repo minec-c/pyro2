@@ -100,34 +100,45 @@
         onValue(docRef, (snapshot) => {
             const data = snapshot.val() || {}; // FIX 3: data is an object
             const serverText = data.text || ""; // FIX 4: get .text from object
-            
+            const localDraft = localStorage.getItem('draft');
             if (document.activeElement !== textArea) {
                 const cursorPos = textArea.selectionStart;
-                textArea.value = serverText;
+                //textArea.value = serverText;
+                  textArea.value = localDraft !== null ? localDraft : serverText;
                 textArea.selectionEnd = cursorPos;
             }
-            updateStatus(serverText);
+            //updateStatus(serverText);
+            updateStatus(textArea.value);
             textArea.disabled = false;
             textArea.placeholder = "abcd...";
+        });
+
+        let lastSavedText = "";
+        function saveNow(text) {
+         if(text===lastSavedText)return;  //skip identifcal writes
+         lastSavedText = text;
+         set(docRef,{
+          text,
+          lastWrite: Date.now()
+         }).then(() => {
+          localStorage.removeItem('draft');
+         }).catch(err => {
+           console.error("Write failed:", err);
+           statusDisplay.textContent = "Save failed - wait 10s or check rules";
         });
 
         // Save to Firebase when user types
         let saveTimeout;
         textArea.addEventListener('input', () => {
+             localStorage.setItem('draft', textArea.value); //Local buffering
             const text = textArea.value;
             updateStatus(text);
             
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(() => {
                 // FIX 5: Write object with BOTH fields to match your rules
-                set(docRef, {
-                    text: text,
-                    lastWrite: Date.now()
-                }).catch(err => {
-                    console.error("Write failed:", err);
-                    statusDisplay.textContent = "Save failed - wait 10s or check rules";
-                });
-            }, 500); // Increased to 500ms
+                saveNow(text);
+            }, 3000);
         });
 
         function updateStatus(text) {
