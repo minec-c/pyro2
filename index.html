@@ -104,8 +104,19 @@
             if (document.activeElement !== textArea) {
                 const cursorPos = textArea.selectionStart;
                 //textArea.value = serverText;
-                  textArea.value = localDraft !== null ? localDraft : serverText;
-                textArea.selectionEnd = cursorPos;
+                 		// textArea.value = localDraft !== null ? localDraft : serverText;
+
+				
+				if (document.activeElement === textArea) {
+				    // User is typing → keep local draft
+				    textArea.value = localDraft !== null ? localDraft : textArea.value;
+				} else {
+				    // Not typing → accept realtime updates from Firebase
+				    textArea.value = serverText;
+				}
+
+				
+				textArea.selectionEnd = cursorPos;
             }
             //updateStatus(serverText);
             updateStatus(textArea.value);
