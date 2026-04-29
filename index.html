@@ -98,25 +98,28 @@
 
         // Load text from Firebase in real-time
         onValue(docRef, (snapshot) => {
-            const data = snapshot.val() || {}; // FIX 3: data is an object
-            const serverText = data.text || ""; // FIX 4: get .text from object
-            const localDraft = localStorage.getItem('draft');
-            if (document.activeElement !== textArea) {
+            const data = snapshot.val() || {}; 			// FIX 3: data is an object
+            const serverText = data.text || ""; 		// FIX 4: get .text from object
+            //const localDraft = localStorage.getItem('draft');
+            //if (document.activeElement !== textArea) {
+            if(!isTyping){
                 const cursorPos = textArea.selectionStart;
                 //textArea.value = serverText;
+                textArea.value = serverText;
                  		// textArea.value = localDraft !== null ? localDraft : serverText;
 
 				
-				if (document.activeElement === textArea) {
+				//if (document.activeElement === textArea) {
 				    // User is typing → keep local draft
-				    textArea.value = localDraft !== null ? localDraft : textArea.value;
-				} else {
+				//    textArea.value = localDraft !== null ? localDraft : textArea.value;
+				//} else {
 				    // Not typing → accept realtime updates from Firebase
-				    textArea.value = serverText;
-				}
+				//    textArea.value = serverText;
+				//}
 
 				
-				textArea.selectionEnd = cursorPos;
+		//textArea.selectionEnd = cursorPos;
+                textArea.selectionStart = textArea.selectionEnd = Math.min(CursorPos, textArea.value.length);
             }
             //updateStatus(serverText);
             updateStatus(textArea.value);
@@ -140,7 +143,19 @@
 		}
         // Save to Firebase when user types
         let saveTimeout;
+
+        let isTyping = false;
+        let typingTimeout;
         textArea.addEventListener('input', () => {
+          isTyping = true;
+
+
+          clearTimeout(typingTimeout);
+          typingTimeout = setTimeout(() => {
+          isTyping = false;
+        }, 1500); // user stopped typing
+
+
              localStorage.setItem('draft', textArea.value); //Local buffering
             const text = textArea.value;
             updateStatus(text);
