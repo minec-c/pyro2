@@ -115,18 +115,18 @@
 
         let lastSavedText = "";
         function saveNow(text) {
-         if(text===lastSavedText)return;  //skip identifcal writes
-         lastSavedText = text;
-         set(docRef,{
-          text,
-          lastWrite: Date.now()
-         }).then(() => {
-          localStorage.removeItem('draft');
-         }).catch(err => {
-           console.error("Write failed:", err);
-           statusDisplay.textContent = "Save failed - wait 10s or check rules";
-        });
-
+	         if(text===lastSavedText)return;  //skip identifcal writes
+	         lastSavedText = text;
+	         set(docRef,{
+	          text,
+	          lastWrite: Date.now()
+	         }).then(() => {
+	          localStorage.removeItem('draft');
+	         }).catch(err => {
+	           console.error("Write failed:", err);
+	           statusDisplay.textContent = "Save failed - wait 10s or check rules";
+	        });
+		}
         // Save to Firebase when user types
         let saveTimeout;
         textArea.addEventListener('input', () => {
