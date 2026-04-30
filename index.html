@@ -25,154 +25,164 @@
     </style>
 </head>
 <body>
+<div class = "container">
+  <textarea id="darkTextArea" placeholder="Connecting..." disable></textarea>
+  <div class="info" id="status">Connecting to ... </div>
+</div>
 
-    <div class="container">
-        <textarea id="darkTextArea" placeholder="Connecting..." disabled></textarea>
-        <div class="info" id="status">Connecting to Firebase...</div>
-    </div>
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    const textArea = document.getElementById('darkTextArea');
+    const statusDisplay = document.getElementById('status');
 
+    // Config fields we need to collect
+    const fields = [
+        { key: 'apiKey', message: "API Key (39 chars, a-z, A-Z, 0-9, -, _):", pattern: /^[a-zA-Z0-9-_]{39}$/ },
+        { key: 'name', message: "Project Name (6 chars, alphanumeric):", pattern: /^[a-zA-Z0-9]{6}$/ },
+        { key: 'messagingSenderId', message: "Messaging Sender ID (12 numbers):", pattern: /^\d{12}$/ },
+        { key: 'appIdSuffix', message: "App ID suffix (22 chars, alphanumeric):", pattern: /^[a-zA-Z0-9]{22}$/ }
+    ];
 
-	const apiKey = prompt("Enter1:");
-	const messagingSenderId = prompt("Enter Messaging Sender ID:");
-	const appIdSuffix = prompt("Enter App ID suffix:");
-//ini0	
-	function ask({ message, pattern, label }) {
-	    while (true) {
-	        const v = prompt(message);
-	        if (v && pattern.test(v)) return v;
-	        alert(`Invalid ${label}`);
-	    }
-	}
-	
-	const fields = {
-	    apiKey: {
-	        message: "API Key (39 chars, a-z, A-Z, 0-9, -, _):",
-	        pattern: /^[a-zA-Z0-9-_]{39}$/
-	    },
-	    name: {
-	        message: "Name (6 chars, alphanumeric):",
-	        pattern: /^[a-zA-Z0-9]{6}$/
-	    },
-	    messagingSenderId: {
-	        message: "Messaging Sender ID (12 numbers):",
-	        pattern: /^\d{12}$/
-	    },
-	    appIdSuffix: {
-	        message: "App ID suffix (22 chars, alphanumeric):",
-	        pattern: /^[a-zA-Z0-9]{22}$/
-	    }
-	};
-	
-	const data = {};
-	for (const key in fields) {
-	    data[key] = ask({ ...fields[key], label: key });
-	}
-	
-	const firebaseConfig = {
-	    apiKey: data.apiKey,
-	    authDomain: `${data.name}.firebaseapp.com`,
-	    databaseURL: `https://${data.name}-default-rtdb.firebaseio.com`,
-	    projectId: data.name,
-	    storageBucket: `${data.name}.firebasestorage.app`,
-	    messagingSenderId: data.messagingSenderId,
-	    appId: `1:${data.messagingSenderId}:web:${data.appIdSuffix}`
-	};
+    const data = {};
+    let currentFieldIndex = 0;
+    let firebaseInitialized = false;
+    let db, docRef;
 
+    function updateInfo() {
+        if (firebaseInitialized) return;
+        const remaining = fields.length - currentFieldIndex;
+        if (currentFieldIndex < fields.length) {
+            statusDisplay.textContent = `Right-click or tap to enter: ${fields[currentFieldIndex].key} | ${remaining} left`;
+        }
+    }
 
+    function askNextField() {
+        if (currentFieldIndex >= fields.length || firebaseInitialized) return;
 
+        const field = fields[currentFieldIndex];
+        const v = prompt(field.message);
 
+        if (v && field.pattern.test(v)) {
+            data[field.key] = v;
+            currentFieldIndex++;
 
-//end0
+            if (currentFieldIndex === fields.length) {
+                initFirebase();
+            } else {
+                updateInfo();
+            }
+        } else if (v!== null) {
+            alert(`Invalid ${field.key}`);
+        }
+    }
+
+    function initFirebase() {
+        const firebaseConfig = {
+            apiKey: data.apiKey,
+            authDomain: `${data.name}.firebaseapp.com`,
+            databaseURL: `https://${data.name}-default-rtdb.firebaseio.com`,
+            projectId: data.name,
+            storageBucket: `${data.name}.firebasestorage.app`,
+            messagingSenderId: data.messagingSenderId,
+            appId: `1:${data.messagingSenderId}:web:${data.appIdSuffix}`
+        };
+
         const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        const docRef = ref(db, 'document'); // FIX 1: Renamed to docRef, points to /document
+        db = getDatabase(app);
+        docRef = ref(db, 'document');
+        firebaseInitialized = true;
 
-        const textArea = document.getElementById('darkTextArea');
-        const statusDisplay = document.getElementById('status');
-        
-        // FIX 2: Removed the immediate set() call. It was wrong.
+        statusDisplay.textContent = "Connecting to Firebase...";
+        setupRealtimeSync();
+    }
 
-        // Load text from Firebase in real-time
+    function setupRealtimeSync() {
         onValue(docRef, (snapshot) => {
-            const data = snapshot.val() || {}; 			// FIX 3: data is an object
-            const serverText = data.text || ""; 		// FIX 4: get .text from object
-            //const localDraft = localStorage.getItem('draft');
-            //if (document.activeElement !== textArea) {
-            if(!isTyping){
+            const data = snapshot.val() || {};
+            const serverText = data.text || "";
+            if (!isTyping) {
                 const cursorPos = textArea.selectionStart;
-                //textArea.value = serverText;
                 textArea.value = serverText;
-                 		// textArea.value = localDraft !== null ? localDraft : serverText;
-
-				
-				//if (document.activeElement === textArea) {
-				    // User is typing → keep local draft
-				//    textArea.value = localDraft !== null ? localDraft : textArea.value;
-				//} else {
-				    // Not typing → accept realtime updates from Firebase
-				//    textArea.value = serverText;
-				//}
-
-				
-		//textArea.selectionEnd = cursorPos;
                 textArea.selectionStart = textArea.selectionEnd = Math.min(cursorPos, textArea.value.length);
             }
-            //updateStatus(serverText);
             updateStatus(textArea.value);
             textArea.disabled = false;
-            textArea.placeholder = "abcd...";
+            textArea.placeholder = "Type here...";
         });
+    }
 
-        let lastSavedText = "";
-        function saveNow(text) {
-	         if(text===lastSavedText)return;  //skip identifcal writes
-	         lastSavedText = text;
-	         set(docRef,{
-	          text,
-	          lastWrite: Date.now()
-	         }).then(() => {
-	          localStorage.removeItem('draft');
-	         }).catch(err => {
-	           console.error("Write failed:", err);
-	           statusDisplay.textContent = "Save failed - wait 10s or check rules";
-	        });
-		}
-        // Save to Firebase when user types
-        let saveTimeout;
+    // Desktop: right-click to trigger next prompt
+    document.addEventListener('contextmenu', (e) => {
+        if (!firebaseInitialized) {
+            e.preventDefault();
+            askNextField();
+        }
+    });
 
-        let isTyping = false;
-        let typingTimeout;
-        textArea.addEventListener('input', () => {
-          isTyping = true;
+    // Mobile: single tap anywhere to trigger next prompt
+    let touchTimer;
+    document.addEventListener('touchstart', (e) => {
+        if (firebaseInitialized || e.target === textArea) return;
+        touchTimer = setTimeout(() => touchTimer = null, 500); // Not a long press
+    });
 
+    document.addEventListener('touchend', (e) => {
+        if (firebaseInitialized || e.target === textArea) return;
+        if (touchTimer) { // Quick tap, not scroll/long-press
+            e.preventDefault();
+            askNextField();
+        }
+    });
 
-          clearTimeout(typingTimeout);
-          typingTimeout = setTimeout(() => {
-          isTyping = false;
-        }, 1500); // user stopped typing
-
-
-             localStorage.setItem('draft', textArea.value); //Local buffering
-            const text = textArea.value;
-            updateStatus(text);
-            
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                // FIX 5: Write object with BOTH fields to match your rules
-                saveNow(text);
-            }, 3000);
+    // Your existing typing/save logic
+    let lastSavedText = "";
+    function saveNow(text) {
+        if (text === lastSavedText ||!firebaseInitialized) return;
+        lastSavedText = text;
+        set(docRef, {
+            text,
+            lastWrite: Date.now()
+        }).then(() => {
+            localStorage.removeItem('draft');
+        }).catch(err => {
+            console.error("Write failed:", err);
+            statusDisplay.textContent = "Save failed - wait 10s or check rules";
         });
+    }
 
-        function updateStatus(text) {
-            const lineCount = text.split('\n').length;
-            const charCount = text.length;
+    let saveTimeout;
+    let isTyping = false;
+    let typingTimeout;
+    textArea.addEventListener('input', () => {
+        isTyping = true;
+        clearTimeout(typingTimeout);
+        typingTimeout = setTimeout(() => {
+            isTyping = false;
+        }, 1500);
+
+        localStorage.setItem('draft', textArea.value);
+        const text = textArea.value;
+        updateStatus(text);
+
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            saveNow(text);
+        }, 3000);
+    });
+
+    function updateStatus(text) {
+        const lineCount = text.split('\n').length;
+        const charCount = text.length;
+        if (firebaseInitialized) {
             statusDisplay.textContent = `Lines: ${lineCount} | Characters: ${charCount}`;
         }
-    </script>
+    }
 
+    // Init
+    textArea.disabled = true;
+    updateInfo();
+</script>
 </body>
 </html>
