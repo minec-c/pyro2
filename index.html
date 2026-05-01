@@ -26,32 +26,32 @@
 </head>
 <body>
 <div class = "container">
-  <textarea id="darkTextArea" placeholder="Connecting..." disable></textarea>
+  <textarea id="darkTextArea" placeholder="Connecting..." disabled></textarea>
   <div class="info" id="status">Connecting to ... </div>
 </div>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
 
     const textArea = document.getElementById('darkTextArea');
     const statusDisplay = document.getElementById('status');
 
     // Config fields we need to collect
     const fields = [
-        { key: 'apiKey', message: "API Key (39 chars, a-z, A-Z, 0-9, -, _):", pattern: /^[a-zA-Z0-9-_]{39}$/ },
-        { key: 'name', message: "Project Name (6 chars, alphanumeric):", pattern: /^[a-zA-Z0-9]{6}$/ },
-        { key: 'messagingSenderId', message: "Messaging Sender ID (12 numbers):", pattern: /^\d{12}$/ },
-        { key: 'appIdSuffix', message: "App ID suffix (22 chars, alphanumeric):", pattern: /^[a-zA-Z0-9]{22}$/ }
+        { key: 'apiKey', message: "AP (39):", pattern: /^[a-zA-Z0-9-_]{39}$/ },
+        { key: 'baas', message: "BA (8):", pattern: /^[a-z]{8}$/ },
+        { key: 'name', message: "NA (6):", pattern: /^[a-zA-Z0-9]{6}$/ },
+        { key: 'messagingSenderId', message: "ME (12):", pattern: /^\d{12}$/ },
+        { key: 'appIdSuffix', message: "SF (22):", pattern: /^[a-zA-Z0-9]{22}$/ }
     ];
 
     const data = {};
     let currentFieldIndex = 0;
-    let firebaseInitialized = false;
+    let BaasInizd = false;
     let db, docRef;
 
     function updateInfo() {
-        if (firebaseInitialized) return;
+        if (BaasInizd) return;
         const remaining = fields.length - currentFieldIndex;
         if (currentFieldIndex < fields.length) {
             statusDisplay.textContent = `Right-click or tap to enter: ${fields[currentFieldIndex].key} | ${remaining} left`;
@@ -59,7 +59,7 @@
     }
 
     function askNextField() {
-        if (currentFieldIndex >= fields.length || firebaseInitialized) return;
+        if (currentFieldIndex >= fields.length || BaasInizd) return;
 
         const field = fields[currentFieldIndex];
         const v = prompt(field.message);
@@ -69,7 +69,7 @@
             currentFieldIndex++;
 
             if (currentFieldIndex === fields.length) {
-                initFirebase();
+                iniBaas();
             } else {
                 updateInfo();
             }
@@ -78,28 +78,51 @@
         }
     }
 
-    function initFirebase() {
-        const firebaseConfig = {
+
+
+    async function loadBaas(baas) {
+	    const appModule = await import(`https://www.gstatic.com/${baas}js/10.12.2/${baas}-app.js`);
+	    const dbModule  = await import(`https://www.gstatic.com/${baas}js/10.12.2/${baas}-database.js`);
+	
+	    return {
+	        initializeApp: appModule.initializeApp,
+	        getDatabase: dbModule.getDatabase,
+	        ref: dbModule.ref,
+	        onValue: dbModule.onValue,
+	        set: dbModule.set
+	    };
+    }
+
+let fb = {};
+async function iniBaas() {
+    try {
+        fb = await loadBaas(data.baas); // 🔒 fixed, not user input
+
+        const baasConf = {
             apiKey: data.apiKey,
-            authDomain: `${data.name}.firebaseapp.com`,
-            databaseURL: `https://${data.name}-default-rtdb.firebaseio.com`,
+            authDomain: `${data.name}.${data.baas}app.com`,
+            databaseURL: `https://${data.name}-default-rtdb.${data.baas}io.com`,
             projectId: data.name,
-            storageBucket: `${data.name}.firebasestorage.app`,
+            storageBucket: `${data.name}.appspot.com`,
             messagingSenderId: data.messagingSenderId,
             appId: `1:${data.messagingSenderId}:web:${data.appIdSuffix}`
         };
 
-        const app = initializeApp(firebaseConfig);
-        db = getDatabase(app);
-        docRef = ref(db, 'document');
-        firebaseInitialized = true;
+        const app = fb.initializeApp(baasConf);
+        db = fb.getDatabase(app);
+        docRef = fb.ref(db, 'document');
 
-        statusDisplay.textContent = "Connecting to Firebase...";
+        BaasInizd = true;
         setupRealtimeSync();
+
+    } catch (e) {
+        console.error(e);
+        statusDisplay.textContent = "Failed to load backend";
     }
+}
 
     function setupRealtimeSync() {
-        onValue(docRef, (snapshot) => {
+        fb.onValue(docRef, (snapshot) => {
             const data = snapshot.val() || {};
             const serverText = data.text || "";
             if (!isTyping) {
@@ -115,7 +138,7 @@
 
     // Desktop: right-click to trigger next prompt
     document.addEventListener('contextmenu', (e) => {
-        if (!firebaseInitialized) {
+        if (!BaasInizd) {
             e.preventDefault();
             askNextField();
         }
@@ -124,12 +147,12 @@
     // Mobile: single tap anywhere to trigger next prompt
     let touchTimer;
     document.addEventListener('touchstart', (e) => {
-        if (firebaseInitialized || e.target === textArea) return;
+        if (BaasInizd || e.target === textArea) return;
         touchTimer = setTimeout(() => touchTimer = null, 500); // Not a long press
     });
 
     document.addEventListener('touchend', (e) => {
-        if (firebaseInitialized || e.target === textArea) return;
+        if (BaasInizd || e.target === textArea) return;
         if (touchTimer) { // Quick tap, not scroll/long-press
             e.preventDefault();
             askNextField();
@@ -139,9 +162,9 @@
     // Your existing typing/save logic
     let lastSavedText = "";
     function saveNow(text) {
-        if (text === lastSavedText ||!firebaseInitialized) return;
+        if (text === lastSavedText ||!BaasInizd) return;
         lastSavedText = text;
-        set(docRef, {
+        fb.set(docRef, {
             text,
             lastWrite: Date.now()
         }).then(() => {
@@ -175,7 +198,7 @@
     function updateStatus(text) {
         const lineCount = text.split('\n').length;
         const charCount = text.length;
-        if (firebaseInitialized) {
+        if (BaasInizd) {
             statusDisplay.textContent = `Lines: ${lineCount} | Characters: ${charCount}`;
         }
     }
